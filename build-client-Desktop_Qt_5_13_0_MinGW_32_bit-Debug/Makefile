@@ -249,6 +249,7 @@ Makefile: ../client/client.pro C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/win32-g+
 		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/features/yacc.prf \
 		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/features/lex.prf \
 		../client/client.pro \
+		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Charts.prl \
 		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Widgets.prl \
 		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Gui.prl \
 		C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Network.prl \
@@ -441,6 +442,7 @@ C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/features/exceptions.prf:
 C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/features/yacc.prf:
 C:/Qt/Qt5.13.0/5.13.0/mingw73_32/mkspecs/features/lex.prf:
 ../client/client.pro:
+C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Charts.prl:
 C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Widgets.prl:
 C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Gui.prl:
 C:/Qt/Qt5.13.0/5.13.0/mingw73_32/lib/Qt5Network.prl:
