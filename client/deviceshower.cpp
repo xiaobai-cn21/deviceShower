@@ -14,7 +14,7 @@ DeviceShower::DeviceShower(QWidget *parent) : QWidget(parent) {
     connect(socket, &QTcpSocket::readyRead, this, &DeviceShower::onDataReceived);
 
     // Change IP if server is on another computer
-    socket->connectToHost("127.0.0.1", 8080);
+    socket->connectToHost("192.168.245.129", 8081);
 }
 
 void DeviceShower::onDataReceived() {
