@@ -9,8 +9,8 @@
 #include <QMenu>
 #include <QAction>
 #include <QDebug>
+#include <QAbstractSocket>
 
-// Helper function to create a styled card with a label
 static QFrame* makeCard(const QString &title) {
     QFrame *card = new QFrame();
     card->setStyleSheet("background:#202538; border-radius:8px;");
@@ -75,8 +75,9 @@ DeviceShower::DeviceShower(QWidget *parent) : QWidget(parent) {
     for (int i = 0; i < 3; i++) {
         Gauge *g = new Gauge();
         g->setMinMax(0, 200);
-        g->setValue(0); // initial value
-        g->setUnits("RPM");
+        g->setValue(0);
+        g->setUnits("--");
+        g->setLabel("--");
         g->setColor(QColor(0, 190, 255));
 
         QFrame *gCard = new QFrame();
@@ -100,7 +101,7 @@ DeviceShower::DeviceShower(QWidget *parent) : QWidget(parent) {
         LedDisplay *led = new LedDisplay();
         led->setText("--");
         led->setColor(QColor(0, 255, 0));
-        led->setLabel(QString("LED %1").arg(i+1));
+        led->setLabel("--");
         led->setBlinkInterval(2000);
 
         QFrame *ledCard = new QFrame();
@@ -128,30 +129,33 @@ DeviceShower::DeviceShower(QWidget *parent) : QWidget(parent) {
 
     setStyleSheet("background-color:#0a0f1a;");
 
-    // === TCP Socket setup ===
     socket = new QTcpSocket(this);
-
-    // Connect signals BEFORE connectToHost
     connect(socket, &QTcpSocket::readyRead, this, &DeviceShower::onDataReceived);
     connect(socket, &QTcpSocket::connected, this, [](){
         qDebug() << "Connected to server!";
     });
     connect(socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onSocketError(QAbstractSocket::SocketError)));
-
-    // Change IP if server is on another computer
-    socket->connectToHost("192.168.245.129", 8081); // <-- Set your server IP here
+    socket->connectToHost("127.0.0.1", 8081); // Change to your server IP if needed
 }
 
-SensorData DeviceShower::parseSensorData(const QString& csv) {
+SensorData DeviceShower::parseSensorData(const QString& line) {
     SensorData data;
-    QStringList parts = csv.trimmed().split(",");
-    if (parts.size() == 6) {
-        data.pumpPressure = parts[0].toFloat();
-        data.pumpVibration = parts[1].toFloat();
-        data.motorCurrent = parts[2].toFloat();
-        data.oilLevel = parts[3].toFloat();
-        data.pumpTemp = parts[4].toFloat();
-        data.flowRate = parts[5].toFloat();
+    QStringList fields = line.trimmed().split(";");
+    if (fields.size() == 6) {
+        auto parseField = [](const QString& field, SensorField& out) {
+            QStringList parts = field.split(",");
+            if (parts.size() == 3) {
+                out.chineseName = parts[0];
+                out.unit = parts[1];
+                out.value = parts[2].toFloat();
+            }
+        };
+        parseField(fields[0], data.pumpPressure);
+        parseField(fields[1], data.pumpVibration);
+        parseField(fields[2], data.motorCurrent);
+        parseField(fields[3], data.oilLevel);
+        parseField(fields[4], data.pumpTemp);
+        parseField(fields[5], data.flowRate);
     }
     return data;
 }
@@ -166,22 +170,34 @@ void DeviceShower::onDataReceived() {
 }
 
 void DeviceShower::updateSensorData(const SensorData& data) {
-    // Example mapping:
     // Gauge 0: Pressure
     // Gauge 1: Vibration
     // Gauge 2: Flow Rate
     if (gauges.size() >= 3) {
-        gauges[0]->setValue(data.pumpPressure);
-        gauges[1]->setValue(data.pumpVibration);
-        gauges[2]->setValue(data.flowRate);
+        gauges[0]->setValue(data.pumpPressure.value);
+        gauges[0]->setUnits(data.pumpPressure.unit);
+        gauges[0]->setLabel(data.pumpPressure.chineseName);
+
+        gauges[1]->setValue(data.pumpVibration.value);
+        gauges[1]->setUnits(data.pumpVibration.unit);
+        gauges[1]->setLabel(data.pumpVibration.chineseName);
+
+        gauges[2]->setValue(data.flowRate.value);
+        gauges[2]->setUnits(data.flowRate.unit);
+        gauges[2]->setLabel(data.flowRate.chineseName);
     }
     // LED 0: Motor Current
     // LED 1: Oil Level
     // LED 2: Pump Temp
     if (leds.size() >= 3) {
-        leds[0]->setText(QString::number(data.motorCurrent, 'f', 1));
-        leds[1]->setText(QString::number(data.oilLevel, 'f', 1));
-        leds[2]->setText(QString::number(data.pumpTemp, 'f', 1));
+        leds[0]->setText(QString::number(data.motorCurrent.value, 'f', 1));
+        leds[0]->setLabel(data.motorCurrent.chineseName + " (" + data.motorCurrent.unit + ")");
+
+        leds[1]->setText(QString::number(data.oilLevel.value, 'f', 1));
+        leds[1]->setLabel(data.oilLevel.chineseName + " (" + data.oilLevel.unit + ")");
+
+        leds[2]->setText(QString::number(data.pumpTemp.value, 'f', 1));
+        leds[2]->setLabel(data.pumpTemp.chineseName + " (" + data.pumpTemp.unit + ")");
     }
 }
 

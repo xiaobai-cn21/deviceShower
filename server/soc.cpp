@@ -4,17 +4,21 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-// Sensor data struct
-struct SensorData {
-    float pumpPressure;   // MPa, 1.2–2.0
-    float pumpVibration;  // mm/s, 0.3–1.5
-    float motorCurrent;   // A, 80–120
-    float oilLevel;       // %, 30–80
-    float pumpTemp;       // °C, 30–55
-    float flowRate;       // m³/h, 50–100
+struct SensorField {
+    std::string chineseName;
+    std::string unit;
+    float value;
 };
 
-// Generate random sensor data within specified ranges
+struct SensorData {
+    SensorField pumpPressure   = {"泵出口压力", "MPa", 0.0f};
+    SensorField pumpVibration  = {"泵轴振动", "mm/s", 0.0f};
+    SensorField motorCurrent   = {"泵电机电流", "A", 0.0f};
+    SensorField oilLevel       = {"油箱液位", "%", 0.0f};
+    SensorField pumpTemp       = {"泵体温度", "°C", 0.0f};
+    SensorField flowRate       = {"流体流量", "m³/h", 0.0f};
+};
+
 SensorData generateSensorData(std::mt19937& gen) {
     std::uniform_real_distribution<float> pumpPressure(1.2, 2.0);
     std::uniform_real_distribution<float> pumpVibration(0.3, 1.5);
@@ -23,22 +27,28 @@ SensorData generateSensorData(std::mt19937& gen) {
     std::uniform_real_distribution<float> pumpTemp(30.0, 55.0);
     std::uniform_real_distribution<float> flowRate(50.0, 100.0);
 
-    return SensorData{
-        pumpPressure(gen),
-        pumpVibration(gen),
-        motorCurrent(gen),
-        oilLevel(gen),
-        pumpTemp(gen),
-        flowRate(gen)
-    };
+    SensorData data;
+    data.pumpPressure.value  = pumpPressure(gen);
+    data.pumpVibration.value = pumpVibration(gen);
+    data.motorCurrent.value  = motorCurrent(gen);
+    data.oilLevel.value      = oilLevel(gen);
+    data.pumpTemp.value      = pumpTemp(gen);
+    data.flowRate.value      = flowRate(gen);
+    return data;
 }
 
-// Format sensor data as CSV string
+// Send as: name,unit,value;name,unit,value;...
 std::string formatSensorData(const SensorData& data) {
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
-        data.pumpPressure, data.pumpVibration, data.motorCurrent,
-        data.oilLevel, data.pumpTemp, data.flowRate);
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer),
+        "%s,%s,%.2f;%s,%s,%.2f;%s,%s,%.2f;%s,%s,%.2f;%s,%s,%.2f;%s,%s,%.2f\n",
+        data.pumpPressure.chineseName.c_str(), data.pumpPressure.unit.c_str(), data.pumpPressure.value,
+        data.pumpVibration.chineseName.c_str(), data.pumpVibration.unit.c_str(), data.pumpVibration.value,
+        data.motorCurrent.chineseName.c_str(), data.motorCurrent.unit.c_str(), data.motorCurrent.value,
+        data.oilLevel.chineseName.c_str(), data.oilLevel.unit.c_str(), data.oilLevel.value,
+        data.pumpTemp.chineseName.c_str(), data.pumpTemp.unit.c_str(), data.pumpTemp.value,
+        data.flowRate.chineseName.c_str(), data.flowRate.unit.c_str(), data.flowRate.value
+    );
     return buffer;
 }
 
@@ -48,7 +58,6 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         std::cerr << "Socket creation error\n";
         return -1;
@@ -57,7 +66,6 @@ int main() {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(8081);
 
-    // Connect to server (localhost)
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
         std::cerr << "Invalid address/ Address not supported\n";
         return -1;

@@ -1,69 +1,82 @@
 #include <iostream>
+#include <string>
+#include <random>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <vector>
-#include <sys/select.h>
+
+// Sensor data struct
+struct SensorData {
+    float pumpPressure;   // MPa, 1.2–2.0
+    float pumpVibration;  // mm/s, 0.3–1.5
+    float motorCurrent;   // A, 80–120
+    float oilLevel;       // %, 30–80
+    float pumpTemp;       // °C, 30–55
+    float flowRate;       // m³/h, 50–100
+};
+
+// Generate random sensor data within specified ranges
+SensorData generateSensorData(std::mt19937& gen) {
+    std::uniform_real_distribution<float> pumpPressure(1.2, 2.0);
+    std::uniform_real_distribution<float> pumpVibration(0.3, 1.5);
+    std::uniform_real_distribution<float> motorCurrent(80.0, 120.0);
+    std::uniform_real_distribution<float> oilLevel(30.0, 80.0);
+    std::uniform_real_distribution<float> pumpTemp(30.0, 55.0);
+    std::uniform_real_distribution<float> flowRate(50.0, 100.0);
+
+    return SensorData{
+        pumpPressure(gen),
+        pumpVibration(gen),
+        motorCurrent(gen),
+        oilLevel(gen),
+        pumpTemp(gen),
+        flowRate(gen)
+    };
+}
+
+// Format sensor data as CSV string
+std::string formatSensorData(const SensorData& data) {
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+        data.pumpPressure, data.pumpVibration, data.motorCurrent,
+        data.oilLevel, data.pumpTemp, data.flowRate);
+    return buffer;
+}
 
 int main() {
-    int server_fd, soc_socket, qt_socket;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+    std::random_device rd;
+    std::mt19937 gen(rd());
 
-    // Create socket file descriptor
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+    // Create socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        std::cerr << "Socket creation error\n";
+        return -1;
     }
 
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(8081);
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(8081);
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+    // Connect to server (localhost)
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        std::cerr << "Invalid address/ Address not supported\n";
+        return -1;
     }
 
-    if (listen(server_fd, 3) < 0) {
-        perror("listen failed");
-        exit(EXIT_FAILURE);
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        std::cerr << "Connection Failed\n";
+        return -1;
     }
 
-    std::cout << "Server listening on port 8081...\n";
-
-    // Accept soc.cpp client first
-    soc_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-    if (soc_socket < 0) {
-        perror("accept failed");
-        exit(EXIT_FAILURE);
-    }
-    std::cout << "soc.cpp connected!\n";
-
-    // Accept Qt client next
-    qt_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-    if (qt_socket < 0) {
-        perror("accept failed");
-        exit(EXIT_FAILURE);
-    }
-    std::cout << "Qt client connected!\n";
-
-    char buffer[1024];
+    std::cout << "Connected to server. Sending sensor data...\n";
     while (true) {
-        int valread = read(soc_socket, buffer, sizeof(buffer)-1);
-        if (valread > 0) {
-            buffer[valread] = '\0';
-            std::cout << "Received from soc.cpp: " << buffer;
-            // Forward to Qt client
-            send(qt_socket, buffer, strlen(buffer), 0);
-        }
+        SensorData data = generateSensorData(gen);
+        std::string message = formatSensorData(data);
+        send(sock, message.c_str(), message.size(), 0);
+        std::cout << "Sent: " << message;
+        sleep(1);
     }
 
-    close(soc_socket);
-    close(qt_socket);
-    close(server_fd);
+    close(sock);
     return 0;
 }
