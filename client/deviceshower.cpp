@@ -130,7 +130,13 @@ DeviceShower::DeviceShower(QWidget *parent) : QWidget(parent) {
 
     // === TCP Socket setup ===
     socket = new QTcpSocket(this);
+
+    // Connect signals BEFORE connectToHost
     connect(socket, &QTcpSocket::readyRead, this, &DeviceShower::onDataReceived);
+    connect(socket, &QTcpSocket::connected, this, [](){
+        qDebug() << "Connected to server!";
+    });
+    connect(socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onSocketError(QAbstractSocket::SocketError)));
 
     // Change IP if server is on another computer
     socket->connectToHost("192.168.245.129", 8081); // <-- Set your server IP here
@@ -153,6 +159,7 @@ SensorData DeviceShower::parseSensorData(const QString& csv) {
 void DeviceShower::onDataReceived() {
     while (socket->canReadLine()) {
         QString line = socket->readLine();
+        qDebug() << "Received from server:" << line;
         SensorData data = parseSensorData(line);
         updateSensorData(data);
     }
@@ -176,4 +183,8 @@ void DeviceShower::updateSensorData(const SensorData& data) {
         leds[1]->setText(QString::number(data.oilLevel, 'f', 1));
         leds[2]->setText(QString::number(data.pumpTemp, 'f', 1));
     }
+}
+
+void DeviceShower::onSocketError(QAbstractSocket::SocketError socketError) {
+    qDebug() << "Socket error:" << socketError << socket->errorString();
 }

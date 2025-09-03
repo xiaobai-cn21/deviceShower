@@ -24,6 +24,7 @@ public:
 
 private slots:
     void onDataReceived();
+    void onSocketError(QAbstractSocket::SocketError socketError);
 
 private:
     QTcpSocket *socket;

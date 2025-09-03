@@ -2,9 +2,11 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <vector>
+#include <sys/select.h>
 
 int main() {
-    int server_fd, new_socket;
+    int server_fd, soc_socket, qt_socket;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
@@ -33,22 +35,35 @@ int main() {
 
     std::cout << "Server listening on port 8081...\n";
 
-    new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-    if (new_socket < 0) {
+    // Accept soc.cpp client first
+    soc_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+    if (soc_socket < 0) {
         perror("accept failed");
         exit(EXIT_FAILURE);
     }
+    std::cout << "soc.cpp connected!\n";
+
+    // Accept Qt client next
+    qt_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+    if (qt_socket < 0) {
+        perror("accept failed");
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Qt client connected!\n";
 
     char buffer[1024];
     while (true) {
-        int valread = read(new_socket, buffer, sizeof(buffer)-1);
+        int valread = read(soc_socket, buffer, sizeof(buffer)-1);
         if (valread > 0) {
             buffer[valread] = '\0';
-            std::cout << "Received: " << buffer;
+            std::cout << "Received from soc.cpp: " << buffer;
+            // Forward to Qt client
+            send(qt_socket, buffer, strlen(buffer), 0);
         }
     }
 
-    close(new_socket);
+    close(soc_socket);
+    close(qt_socket);
     close(server_fd);
     return 0;
 }
